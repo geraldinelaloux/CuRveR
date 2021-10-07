@@ -2,6 +2,7 @@
 
 export(run_curver)
 import(dplyr)
+import(ggplot2)
 import(lubridate)
 import(purrr)
 import(readxl)
