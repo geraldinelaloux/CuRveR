@@ -20,7 +20,8 @@ Imports:
     GA,
     dplyr,
     tidyr,
-    stringr
+    stringr,
+    ggplot2
 LazyData: true
 RoxygenNote: 7.1.2
 Remotes: github::coolbutuseless/ggpattern
