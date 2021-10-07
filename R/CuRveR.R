@@ -3,6 +3,7 @@
 #' @import purrr
 #' @import readxl
 #' @import lubridate
+#' @import dplyr
 
 
 source("R/hello.R")
