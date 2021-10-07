@@ -19,13 +19,7 @@ richard(t, p_max, p_min, r_max, s)
 }
 \value{
 The population at time \code{t} Given by \deqn{P(t) = p_{min} + \frac{p_{max}-p_{min}}{1 + e^{4r_{max}.(t-s)/p_{min}- p_{max}}}}
-
-
 }
 \description{
 Modified Richard Equation
-}
-\examples{
-add(1, 1)
-add(10, 1)
 }

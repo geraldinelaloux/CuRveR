@@ -22,10 +22,6 @@
 #' @param r_min Float : Maximum Growth/Death rate (positive for growth|negative fo death)
 #' @param s     Float : Shift (Time at which r_max occurs)
 #' @return The population at time \code{t} Given by \deqn{P(t) = p_{min} + \frac{p_{max}-p_{min}}{1 + e^{4r_{max}.(t-s)/p_{min}- p_{max}}}}
-#' @return
-#' @examples
-#' add(1, 1)
-#' add(10, 1)
 richard <- function(t, p_max, p_min, r_max, s){
   p_t <- p_min + (p_max - p_min) / (1 + exp(4 * r_max * (t - s)/(p_min - p_max)))
   return(p_t)
