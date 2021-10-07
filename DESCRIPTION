@@ -21,4 +21,4 @@ Imports:
     dplyr
 LazyData: true
 RoxygenNote: 7.1.2
-Remotes: coolbutuseless/ggpattern
+Remotes: github::coolbutuseless/ggpattern

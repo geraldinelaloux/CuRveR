@@ -295,7 +295,7 @@ server <- function(input, output, session){
           1:input$n_signals,
           \(x) {read_csv(file = input[[paste0("file_", x)]], col_names = TRUE) |> mutate(signal = input[[paste0("signal_", x)]])
           }) |>
-        bind_rows()
+        dplyr::bind_rows()
     }
 
     else if (input$file_type == "xlsx" && input$excel_type == "file") {
@@ -304,7 +304,7 @@ server <- function(input, output, session){
           1:input$n_signals,
           \(x) {readxl::read_xlsx(path = input$excel_file[["datapath"]]) |> mutate(signal = input[[paste0("signal_", x)]])
           }) |>
-        bind_rows()
+        dplyr::bind_rows()
     }
 
     else if (input$file_type == "xlsx" && input$excel_type == "sheet") {
@@ -314,7 +314,7 @@ server <- function(input, output, session){
           \(x) {readxl::read_xlsx(path = input$excel_file[["datapath"]],
                                   sheet = input[[paste0("sheet_", x)]]) |> mutate(signal = input[[paste0("signal_", x)]])
             }) |>
-        bind_rows()
+        dplyr::bind_rows()
 
     }
 
