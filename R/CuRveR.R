@@ -6,9 +6,6 @@
 #' @import dplyr
 #' @import tidyr
 
-
-source("R/hello.R")
-
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
 modalSavePlot <- function() {
