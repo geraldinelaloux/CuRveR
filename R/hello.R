@@ -91,12 +91,11 @@ fit <- GA::de(type = "real-valued",
   # })
 }
 
-#'
+#' Clean time column
 #'
 #' @param .data     Float : Dataframe
 #' @param .time_col String : Name of the time column from the plate reader experiment
 #' @return The dataframe with the formated time column as elapsed hours
-#' @examples
 clean_time <- function(.data, .time_col) {
   .data |>
     mutate(
@@ -106,10 +105,11 @@ clean_time <- function(.data, .time_col) {
     )
 }
 
+#' Format into long format
+#'
 #' @param .data Float : Dataframe
 #' @param wells Tidyselect : Tidyselect matching all the wells columns from your plate reader experiment
 #' @return The dataframe in long/tidy format
-#' @examples
 format_wellplate_long <- function(.data, wells = matches(regex("^[A-Za-z]{1}\\d{1,2}"))) {
   .data |>
     pivot_longer(cols = {{wells}},
