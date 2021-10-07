@@ -5,6 +5,7 @@
 #' @import lubridate
 #' @import dplyr
 #' @import tidyr
+#' @import stringr
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 

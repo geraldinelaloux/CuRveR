@@ -19,7 +19,8 @@ Imports:
     spsComps,
     GA,
     dplyr,
-    tidyr
+    tidyr,
+    stringr
 LazyData: true
 RoxygenNote: 7.1.2
 Remotes: github::coolbutuseless/ggpattern
