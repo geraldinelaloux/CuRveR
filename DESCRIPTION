@@ -17,8 +17,8 @@ Imports:
     ids,
     rrapply,
     spsComps,
-    GA,
-    sortable
+    GA, 
+    dplyr
 LazyData: true
 RoxygenNote: 7.1.2
 Remotes: coolbutuseless/ggpattern
