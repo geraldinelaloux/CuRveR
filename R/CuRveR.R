@@ -1,11 +1,25 @@
-library(shiny)
-library(sortable)
-library(shinythemes)
-library(tidyverse)
-library(spsComps)
+#' @import shiny
+#' @import sortable
+#' @import purrr
+#' @import readxl
+#' @import lubridate
+
 source("R/hello.R")
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
+
+modalSavePlot <- function() {
+  modalDialog(
+    title = "Save",
+    textInput("filename", "Filename"),
+    selectInput("filetype", "Filetype", choices = c("eps", "ps", "pdf", "jpeg", "tiff", "png", "bmp", "svg" )),
+    numericInput("dpi", "Resolution", 300,  min = 0, max = 1200, step = 10),
+    numericInput("width", "width", 100),
+    numericInput("height", "height", 100),
+    selectInput("units", "Units", choices = c("in", "cm", "mm", "px")),
+    downloadButton("downloadPlot", "Download"),
+  )
+}
 
 ############################################################################
 ############################################################################
@@ -63,7 +77,8 @@ ui <-
 
     tabPanel("Overview", value = 2,
       uiOutput("signal_selector_overview"),
-      plotOutput("overview")
+      plotOutput("overview"),
+      actionButton("dl_overview", "Save")
     ),
 
     #################################################################
@@ -83,7 +98,7 @@ ui <-
               selectizeInput("whichcondition", label = NULL, choices = NULL)
             ),
             column(5,
-              textButton(textId = "condition_name", label = "", btn_label = "Rename", placeholder = "New name", class = "btn-primary")
+              spsComps::textButton(textId = "condition_name", label = "", btn_label = "Rename", placeholder = "New name", class = "btn-primary")
             ),
             column(2,
               actionButton("add_condition", "+", class = "btn-primary")
@@ -174,10 +189,12 @@ ui <-
         uiOutput("signal_selector_plot")
       ),
       fluidRow(
-        plotOutput("condition_params")
+        plotOutput("condition_params"),
+        actionButton("dl_condition_params", "Save")
       ),
       fluidRow(
-        plotOutput("condition_compare")
+        plotOutput("condition_compare"),
+        actionButton("dl_condition_compare", "Save")
       )
     ),
 
@@ -331,7 +348,7 @@ server <- function(input, output, session){
   ##  Plot Plate Overview
   ##-----------------------
 
-  output$overview <- renderPlot({
+  overview <- reactive({
     req(rvs$data, input$selected_signal_overview)
 
     rvs$data |>
@@ -340,9 +357,19 @@ server <- function(input, output, session){
       geom_line() +
       facet_grid(col ~ row) +
       theme_minimal()
-
   })
 
+  output$overview <- renderPlot({
+    overview()
+  })
+
+  observeEvent(input$dl_overview,{
+    output$downloadPlot <- downloadHandler(
+      filename = function() { paste0(input$filename, ".", input$filetype) },
+      content = function(file) { ggsave(file, plot = overview(), device = input$filetype, width = input$width, height = input$height, units = input$units, dpi = input$dpi) }
+    )
+    showModal(modalSavePlot())
+  })
   #################################################################
   ##                     Conditions & Blanks                     ##
   #################################################################
@@ -696,7 +723,7 @@ server <- function(input, output, session){
     selectInput("selected_signal_plot", label = NULL, choices = rvs$all_signals)
   })
 
-  output$condition_params <- renderPlot({
+  condition_params <- reactive({
     req(rvs$data_by_condition)
 
     rvs$data_by_condition |>
@@ -721,12 +748,22 @@ server <- function(input, output, session){
       scale_y_continuous(limits = c(0,NA), expand = c(0,0)) +
       facet_wrap(~condition) +
       theme_minimal()
+  })
 
+  output$condition_params <- renderPlot({
+    condition_params()
+  })
+
+  observeEvent(input$dl_condition_params,{
+    output$downloadPlot <- downloadHandler(
+      filename = function() { paste0(input$filename, ".", input$filetype) },
+      content = function(file) { ggsave(file, plot = condition_params(), device = input$filetype, width = input$width, height = input$height, units = input$units, dpi = input$dpi) }
+    )
+    showModal(modalSavePlot())
   })
 
 
-
-  output$condition_compare <- renderPlot({
+  condition_compare <- reactive({
     req(rvs$data_by_condition)
 
     rvs$data_by_condition |>
@@ -739,21 +776,33 @@ server <- function(input, output, session){
       filter(signal == input$selected_signal_plot) |>
       group_by(condition) |>
       ggplot(aes(x = Time, color = condition, fill = condition)) +
-        geom_point(aes(y = value, group = well), size = .8, alpha = .4, ) +
-        geom_ribbon(data = summarized,
-                    aes(ymin = mean - sd,
-                        ymax = mean + sd),
-                    alpha = .2) +
-        geom_line(data = summarized,
-                  aes(y = mean),
-                  size = .7,
-                  linetype = "dashed") +
-        geom_line(aes(y = fit, group = well), size = .7) +
-        scale_x_continuous(expand = c(0,0)) +
-        scale_y_continuous(limits = c(0,NA), expand = c(0,0)) +
-        theme_minimal()
+      geom_point(aes(y = value, group = well), size = .8, alpha = .4, ) +
+      geom_ribbon(data = summarized,
+                  aes(ymin = mean - sd,
+                      ymax = mean + sd),
+                  alpha = .2) +
+      geom_line(data = summarized,
+                aes(y = mean),
+                size = .7,
+                linetype = "dashed") +
+      geom_line(aes(y = fit, group = well), size = .7) +
+      scale_x_continuous(expand = c(0,0)) +
+      scale_y_continuous(limits = c(0,NA), expand = c(0,0)) +
+      theme_minimal()
+
+  })
+  output$condition_compare <- renderPlot({
+    condition_compare()
+
   })
 
+  observeEvent(input$dl_condition_compare,{
+    output$downloadPlot <- downloadHandler(
+      filename = function() { paste0(input$filename, ".", input$filetype) },
+      content = function(file) { ggsave(file, plot = condition_compare(), device = input$filetype, width = input$width, height = input$height, units = input$units, dpi = input$dpi) }
+    )
+    showModal(modalSavePlot())
+  })
 }
 
 
@@ -765,4 +814,5 @@ server <- function(input, output, session){
 ###########################################################################
 ###########################################################################
 
+#' @export
 run_curver <- function() {shinyApp(ui = ui, server = server)}
