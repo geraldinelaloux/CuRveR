@@ -4,6 +4,7 @@
 #' @import readxl
 #' @import lubridate
 #' @import dplyr
+#' @import tidyr
 
 
 source("R/hello.R")
