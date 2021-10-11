@@ -143,16 +143,16 @@ ui <-
     tabPanel("Conditions", value = 3,
       fluidRow(
         column(3,
-          div(selectizeInput("whichcondition", label = NULL, choices = c("Exemple_condition")), style = 'margin-top:20px')
+          div(selectizeInput("whichcondition", label = NULL, choices = c("Example_condition")), style = 'margin-top:20px')
+        ),
+        column(2,
+               actionButton("add_condition", "Add", style = 'margin-top:20px')
+        ),
+        column(2,
+               actionButton("del_condition", "Remove", style = 'margin-top:20px')
         ),
         column(5,
           spsComps::textButton(textId = "condition_name", label = "", btn_label = "Rename", placeholder = "New name")
-        ),
-        column(2,
-          actionButton("add_condition", "Add", style = 'margin-top:20px')
-        ),
-        column(2,
-          actionButton("del_condition", "Remove", style = 'margin-top:20px')
         )
       ),
       fluidRow(
@@ -273,31 +273,32 @@ ui <-
           conditionalPanel("input.plot_type == 'metric_comparison'",
             radioButtons("metric_to_compare", "Metric",
                          choiceValues = c("r_max", "p_max", "p_min", "s"),
-                         choiceNames = c(HTML(paste0("r",tags$sub("max"))),
-                                         HTML(paste0("p",tags$sub("max"))),
-                                         HTML(paste0("p",tags$sub("min"))),
-                                         HTML("s")))
+                         choiceNames = c("r max",
+                                         "p max",
+                                         "p min",
+                                         "s"))
           ),
           conditionalPanel("input.plot_type == 'metric_visualization'",
             checkboxGroupInput("metric_to_visualize", "Metric",
                           choiceValues = c("r_max", "p_max", "p_min", "s", "fit", "data_point"),
-                          choiceNames = c(HTML(paste0("r",tags$sub("max"))),
-                                          HTML(paste0("p",tags$sub("max"))),
-                                          HTML(paste0("p",tags$sub("min"))),
-                                          HTML("s"),
-                                          HTML("Fit"),
-                                          HTML("Data points")),
+                          choiceNames = c("r max",
+                                          "p max",
+                                          "p min",
+                                          "s",
+                                          "Fit",
+                                          "Data points"),
                           selected = c("r_max", "p_max", "p_min", "s", "fit", "data_point"))
           ),
           conditionalPanel("input.plot_type == 'data_comparison'",
-            checkboxGroupInput("data_to_compare", "Plot features", choices = c("Mean" = "mean",
-                                                                        "SD as bar" = "sd_bar",
-                                                                        "SD as halo" = "sd_halo",
-                                                                        "Fit" = "fit",
-                                                                        "Data points" = "data_points")
+            checkboxGroupInput("data_to_compare", "Plot features",
+                               choices = c("Mean"       = "mean",
+                                           "SD as bar"   = "sd_bar",
+                                           "SD as halo"  = "sd_halo",
+                                           "Fit"         = "fit",
+                                           "Data points" = "data_points"),
+                               selected = c("mean", "sd_halo","fit", "data_points"))
             )
           ),
-        ),
         column(3,
           uiOutput("signal_selector_plot")
         ),
@@ -316,7 +317,7 @@ ui <-
         )
       )
     )
-)
+  )
 
 ############################################################################
 ############################################################################
@@ -367,8 +368,8 @@ server <- function(input, output, session){
           1:input$n_signals,
           \(x) {
             fluidRow(
-              column(6, textInput(inputId = paste0("signal_", x), label = NULL,value = "", placeholder = paste0("signal ", x))),
-              column(6,
+              column(4, textInput(inputId = paste0("signal_", x), label = NULL,value = "", placeholder = paste0("signal ", x))),
+              column(4,
                      div(style = "display:inline-block; float:right", selectInput(inputId = paste0("sheet_", x), label = NULL, choices = readxl::excel_sheets(input$excel_file[["datapath"]]), selected = input[[paste0("sheet_", x)]] %||% NULL))))
           })
         }
@@ -379,8 +380,8 @@ server <- function(input, output, session){
         1:input$n_signals,
         \(x) {
           fluidRow(
-            column(6, textInput(inputId = paste0("signal_", x), label = NULL, value = "", placeholder = paste0("signal ", x))),
-            column(6, fileInput(inputId = paste0("file_", x),   label = NULL)))
+            column(4, textInput(inputId = paste0("signal_", x), label = NULL, value = "", placeholder = paste0("signal ", x))),
+            column(4, fileInput(inputId = paste0("file_", x),   label = NULL)))
         })
       }
     })
@@ -848,8 +849,8 @@ server <- function(input, output, session){
   })
 
 
-  observeEvent(input$dl_performances,{
-    output$downloadPlot <- downloadHandler(
+  observeEvent(input$dl_performance,{
+    output$downloadData <- downloadHandler(
       filename = function() { paste0(input$filename, ".", input$filetype) },
       content = function(file) {
         if (input$filetype == "csv") {
@@ -861,11 +862,11 @@ server <- function(input, output, session){
   })
 
   observeEvent(input$dl_data,{
-    output$downloadPlot <- downloadHandler(
+    output$downloadData <- downloadHandler(
       filename = function() { paste0(input$filename, ".", input$filetype) },
       content = function(file) {
         if (input$filetype == "csv") {
-          write_csv(rvs$perfomances, file = file, col_names = TRUE)
+          write_csv(rvs$data_by_condition, file = file, col_names = TRUE)
         }
       }
     )
@@ -882,7 +883,7 @@ server <- function(input, output, session){
 
   output$condition_selector_plot <- renderUI({
     req(rvs$all_signals)
-    checkboxGroupInput("selected_condition_plot", label = "Conditions", choices = rvs$all_conditions)
+    checkboxGroupInput("selected_condition_plot", label = "Conditions", choices = rvs$all_conditions, selected = rvs$all_conditions)
   })
 
   final_plot <- reactive({
@@ -904,7 +905,7 @@ server <- function(input, output, session){
 
       plot_data |>
         ggplot(aes(y = condition, x = !!as.symbol(input$metric_to_compare))) +
-        geom_point(size = 2, color = "#e8871a") +
+        geom_point(size = 5, color = "#e8871a") +
         theme_minimal() -> p
 
     }
@@ -961,7 +962,7 @@ server <- function(input, output, session){
       ggplot(aes(x = Time, color = condition, fill = condition)) -> p
 
       if ("data_points" %in% input$data_to_compare) {
-        p <- p + geom_point(aes(y = value, group = well), size = 1.5, alpha = .4)
+        p <- p + geom_point(aes(y = value, group = well), size = 2, alpha = .4)
       }
 
       if ("sd_halo" %in% input$data_to_compare) {
@@ -981,12 +982,12 @@ server <- function(input, output, session){
       if ("mean" %in% input$data_to_compare) {
         p <- p + geom_line(data = summarized_plot_data,
                            aes(y = mean),
-                           size = .7,
+                           size = 1,
                            linetype = "dashed")
       }
 
       if ("fit" %in% input$data_to_compare) {
-        p <- p + geom_line(aes(y = fit, group = well), size = .7)
+        p <- p + geom_line(aes(y = fit, group = well), size = 1)
       }
 
 
