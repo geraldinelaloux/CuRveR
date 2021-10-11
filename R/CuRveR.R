@@ -25,6 +25,22 @@ modalSavePlot <- function() {
   )
 }
 
+modalSaveData <- function() {
+  modalDialog(
+    title = "Save",
+    textInput("filename", "Filename"),
+    selectInput("filetype", "Filetype", choices = c("csv")),
+    downloadButton("downloadData", "Download"),
+  )
+}
+
+color_tile_from_0 <- function(...) {
+  formattable::formatter("span", style = \(x) {formattable::style(display = "block",
+                                                                  padding = "0 4px",
+                                                                  `border-radius` = "4px",
+                                                                  `background-color` = formattable::csscolor(formattable::gradient(c(0,as.numeric(x)),...))[2:length(x)])})
+}
+
 
 #' @export
 run_curver <- function() {
@@ -202,18 +218,42 @@ ui <-
     tabPanel("Fit", value = 5,
       fluidRow(
         column(4,
+          selectInput("optim_method", "Model method", choices = c("Richard"))
+        ),
+        column(4,
           selectInput("loss_fct", "Loss function", choices = c("LAD", "OLS"))
         ),
         column(4,
           selectInput("optim_method", "Optimization method", choices = c("GA"))
-        ),
-        column(4,
-          actionButton("fit", "Fit", style = 'margin-top:25px')
+        )
+      ),
+      fluidRow(
+        column(4, offset = 4,
+          actionButton("fit", "Fit")
         )
       ),
       fluidRow(
         column(12,
-          formattable::formattableOutput("fit_data")
+          div(style = 'width:100%;overflow-x: scroll;height:20vh;overflow-y: scroll;',
+            formattable::formattableOutput("fit_data")
+          )
+        )
+      ),
+      fluidRow(
+        column(3,
+          actionButton("dl_performance", "Save")
+        )
+      ),
+      fluidRow(
+        column(12,
+          div(style = 'width:100%;overflow-x: scroll;height:40vh;overflow-y: scroll;',
+            formattable::formattableOutput("data_by_condition")
+          )
+        )
+      ),
+      fluidRow(
+        column(3,
+          actionButton("dl_data", "Save")
         )
       )
     ),
@@ -224,25 +264,58 @@ ui <-
 
     tabPanel("Plots", value = 6,
       fluidRow(
-        uiOutput("signal_selector_plot")
+        column(3,
+          radioButtons("plot_type", "Plot Type", choices = c("Metric comparison" = "metric_comparison",
+                                                             "Metric Visualization" = "metric_visualization",
+                                                             "Data Comparison" = "data_comparison"))
+        ),
+        column(3,
+          conditionalPanel("input.plot_type == 'metric_comparison'",
+            radioButtons("metric_to_compare", "Metric",
+                         choiceValues = c("r_max", "p_max", "p_min", "s"),
+                         choiceNames = c(HTML(paste0("r",tags$sub("max"))),
+                                         HTML(paste0("p",tags$sub("max"))),
+                                         HTML(paste0("p",tags$sub("min"))),
+                                         HTML("s")))
+          ),
+          conditionalPanel("input.plot_type == 'metric_visualization'",
+            checkboxGroupInput("metric_to_visualize", "Metric",
+                          choiceValues = c("r_max", "p_max", "p_min", "s", "fit", "data_point"),
+                          choiceNames = c(HTML(paste0("r",tags$sub("max"))),
+                                          HTML(paste0("p",tags$sub("max"))),
+                                          HTML(paste0("p",tags$sub("min"))),
+                                          HTML("s"),
+                                          HTML("Fit"),
+                                          HTML("Data points")),
+                          selected = c("r_max", "p_max", "p_min", "s", "fit", "data_point"))
+          ),
+          conditionalPanel("input.plot_type == 'data_comparison'",
+            checkboxGroupInput("data_to_compare", "Plot features", choices = c("Mean" = "mean",
+                                                                        "SD as bar" = "sd_bar",
+                                                                        "SD as halo" = "sd_halo",
+                                                                        "Fit" = "fit",
+                                                                        "Data points" = "data_points")
+            )
+          ),
+        ),
+        column(3,
+          uiOutput("signal_selector_plot")
+        ),
+        column(3,
+          uiOutput("condition_selector_plot")
+        )
       ),
       fluidRow(
-        plotOutput("condition_params"),
-        actionButton("dl_condition_params", "Save")
+        column(12,
+          plotOutput("final_plot"),
+        )
       ),
       fluidRow(
-        plotOutput("condition_compare"),
-        actionButton("dl_condition_compare", "Save")
+        column(3,
+          actionButton("dl_final_plot", "Save")
+        )
       )
-    ),
-
-    #################################################################
-    ##                        Quality check                        ##
-    #################################################################
-
-    tabPanel("Quality check", value = 7,),
-
-    tabPanel("Save", value = 8,),
+    )
 )
 
 ############################################################################
@@ -377,6 +450,8 @@ server <- function(input, output, session){
     req(rvs$data)
     selectInput("selected_signal_overview", label = NULL, choices = unique(rvs$data[["signal"]]))
   })
+
+
 
   ##-----------------------
   ##  Plot Plate Overview
@@ -736,17 +811,10 @@ server <- function(input, output, session){
         mutate(fit = richard(Time, p_max, p_min, r_max, s),
                doubling_time = log(2)/log(1+r_max/p_max)) -> rvs$data_by_well
 
-    print(rvs$data_by_well)
-
     data_to_fit |>
       full_join(rvs$parameters_by_condition, by = c("condition" = "condition", "signal" = "signal")) |>
       mutate(fit = richard(Time, p_max, p_min, r_max, s),
              doubling_time = log(2)/log(1+r_max/p_max)) -> rvs$data_by_condition
-
-    print(rvs$data_by_condition |> rowwise() |>
-            mutate(absolute_error = abs(value - fit),
-                   error2 = (value - fit)^2) |>
-            group_by(signal, condition) )
 
     rvs$data_by_condition |>
       rowwise() |>
@@ -763,104 +831,188 @@ server <- function(input, output, session){
                 E1 = (1 - (sum(absolute_error) / sum(abs(value-mean(fit))))) * 100,
                 d_r = if_else(E1 >= 0, E1, (((sum(abs(value-mean(fit)))) / sum(absolute_error)) - 1) * 100)) -> rvs$perfomances
 
-    print(rvs$perfomances)
+
+    rvs$all_conditions <- unique(rvs$data_by_condition[["condition"]])
 
     output$fit_data <- formattable::renderFormattable({
-      rvs$perfomances |> formattable::format_table()
+      formattable::formattable(rvs$perfomances,
+                               list(VEcv = color_tile_from_0("lightpink", "lightblue"),
+                                    d_r = color_tile_from_0("lightpink", "lightblue")))
 
+    })
+
+    output$data_by_condition <- formattable::renderFormattable({
+      formattable::formattable(rvs$data_by_condition)
     })
 
   })
 
+
+  observeEvent(input$dl_performances,{
+    output$downloadPlot <- downloadHandler(
+      filename = function() { paste0(input$filename, ".", input$filetype) },
+      content = function(file) {
+        if (input$filetype == "csv") {
+          write_csv(rvs$perfomances, file = file, col_names = TRUE)
+        }
+      }
+    )
+    showModal(modalSaveData())
+  })
+
+  observeEvent(input$dl_data,{
+    output$downloadPlot <- downloadHandler(
+      filename = function() { paste0(input$filename, ".", input$filetype) },
+      content = function(file) {
+        if (input$filetype == "csv") {
+          write_csv(rvs$perfomances, file = file, col_names = TRUE)
+        }
+      }
+    )
+    showModal(modalSaveData())
+  })
   #################################################################
   ##                            Plots                            ##
   #################################################################
 
   output$signal_selector_plot <- renderUI({
     req(rvs$all_signals)
-    selectInput("selected_signal_plot", label = NULL, choices = rvs$all_signals)
+    radioButtons("selected_signal_plot", label = "Signal", choices = rvs$all_signals)
   })
 
-  condition_params <- reactive({
+  output$condition_selector_plot <- renderUI({
+    req(rvs$all_signals)
+    checkboxGroupInput("selected_condition_plot", label = "Conditions", choices = rvs$all_conditions)
+  })
+
+  final_plot <- reactive({
     req(rvs$data_by_condition)
 
     rvs$data_by_condition |>
       filter(signal == input$selected_signal_plot) |>
-      drop_na(condition) |>
-      mutate(intercept = richard(s, p_max, p_min, r_max, s) - r_max * s) |>
-      ggplot(aes(x = Time, y = value, group = well)) +
-      geom_point(alpha = .4,  color = '#7570b3') +
-      geom_hline(aes(yintercept = p_max), linetype = "dashed", color = "#1B9E77")+
-      geom_hline(aes(yintercept = p_min), linetype = "dashed", color = "#1B9E77")+
-      geom_segment(aes(x = s, xend = s,
-                       y = p_min, yend = richard(s, p_max, p_min, r_max, s)),
-                   linetype = "dashed",
-                   color = "#1B9E77") +
-      geom_segment(aes(x = s, xend = max(Time),
-                       y = richard(s, p_max, p_min, r_max, s), yend = richard(s, p_max, p_min, r_max, s)),
-                   linetype = "dashed",
-                   color = "#1B9E77") +
-      geom_line(aes(y = linear(Time, r_max, intercept)), linetype = "dashed", color = "#1B9E77") +
-      geom_line(aes(y = fit), color = 'black') +
-      scale_x_continuous(expand = c(0,0)) +
-      scale_y_continuous(limits = c(0,NA), expand = c(0,0)) +
-      facet_wrap(~condition) +
-      theme_minimal()
-  })
-
-  output$condition_params <- renderPlot({
-    condition_params()
-  })
-
-  observeEvent(input$dl_condition_params,{
-    output$downloadPlot <- downloadHandler(
-      filename = function() { paste0(input$filename, ".", input$filetype) },
-      content = function(file) { ggsave(file, plot = condition_params(), device = input$filetype, width = input$width, height = input$height, units = input$units, dpi = input$dpi) }
-    )
-    showModal(modalSavePlot())
-  })
-
-
-  condition_compare <- reactive({
-    req(rvs$data_by_condition)
+      filter(condition %in% input$selected_condition_plot) |>
+      drop_na(condition) -> plot_data
 
     rvs$data_by_condition |>
       filter(signal == input$selected_signal_plot) |>
+      filter(condition %in% input$selected_condition_plot) |>
       drop_na(condition) |>
       group_by(condition, Time) |>
-      summarise(sd = sd(value), mean = mean(value)) -> summarized
+      summarise(sd = sd(value), mean = mean(value)) -> summarized_plot_data
 
-    rvs$data_by_condition |>
-      filter(signal == input$selected_signal_plot) |>
-      group_by(condition) |>
-      ggplot(aes(x = Time, color = condition, fill = condition)) +
-      geom_point(aes(y = value, group = well), size = .8, alpha = .4, ) +
-      geom_ribbon(data = summarized,
-                  aes(ymin = mean - sd,
-                      ymax = mean + sd),
-                  alpha = .2) +
-      geom_line(data = summarized,
-                aes(y = mean),
-                size = .7,
-                linetype = "dashed") +
-      geom_line(aes(y = fit, group = well), size = .7) +
-      scale_x_continuous(expand = c(0,0)) +
-      scale_y_continuous(limits = c(0,NA), expand = c(0,0)) +
-      theme_minimal()
+    if (input$plot_type == "metric_comparison") {
+
+      plot_data |>
+        ggplot(aes(y = condition, x = !!as.symbol(input$metric_to_compare))) +
+        geom_point(size = 2, color = "#e8871a") +
+        theme_minimal() -> p
+
+    }
+
+    else if (input$plot_type == "metric_visualization") {
+
+      print("metric_visualization")
+
+      plot_data |>
+        mutate(intercept = richard(s, p_max, p_min, r_max, s) - r_max * s) |>
+        ggplot(aes(x = Time, y = value, group = well)) -> p
+
+
+      if ("data_point" %in% input$metric_to_visualize) {
+        p <- p + geom_point(aes(x = Time, y = value, group = well),alpha = .4,  color = '#7570b3')
+      }
+
+      if ("p_max" %in% input$metric_to_visualize) {
+        p <- p + geom_hline(aes(yintercept = p_max), linetype = "dashed", color = "#1B9E77")
+      }
+
+      if ("p_min" %in% input$metric_to_visualize) {
+        p <- p + geom_hline(aes(yintercept = p_min), linetype = "dashed", color = "#1B9E77")
+      }
+
+      if ("s" %in% input$metric_to_visualize) {
+        p <- p + geom_segment(aes(x = s, xend = s,
+                                  y = 0, yend = richard(s, p_max, p_min, r_max, s)),
+                                  linetype = "dashed",
+                                  color = "#1B9E77")
+      }
+
+      if ("r_max" %in% input$metric_to_visualize) {
+        p <- p + geom_line(aes(y = linear(Time, r_max, intercept)), linetype = "dashed", color = "#1B9E77")
+      }
+
+
+      if ("fit" %in% input$metric_to_visualize) {
+        p <- p + geom_line(aes(y = fit), color = 'black')
+      }
+
+      p <- p + scale_x_continuous(expand = c(0,0)) +
+        scale_y_continuous(limits = c(0,NA), expand = c(0,0)) +
+        facet_wrap(~condition) +
+        theme_minimal()
+
+    }
+
+    else if (input$plot_type == "data_comparison") {
+
+
+
+      plot_data |>
+      ggplot(aes(x = Time, color = condition, fill = condition)) -> p
+
+      if ("data_points" %in% input$data_to_compare) {
+        p <- p + geom_point(aes(y = value, group = well), size = 1.5, alpha = .4)
+      }
+
+      if ("sd_halo" %in% input$data_to_compare) {
+        p <- p + geom_ribbon(data = summarized_plot_data,
+                             aes(ymin = mean - sd,
+                                 ymax = mean + sd),
+                             alpha = .2)
+      }
+
+      if ("sd_bar" %in% input$data_to_compare) {
+        p <- p + geom_errorbar(data = summarized_plot_data,
+                             aes(ymin = mean - sd,
+                                 ymax = mean + sd),
+                             alpha = .4)
+      }
+
+      if ("mean" %in% input$data_to_compare) {
+        p <- p + geom_line(data = summarized_plot_data,
+                           aes(y = mean),
+                           size = .7,
+                           linetype = "dashed")
+      }
+
+      if ("fit" %in% input$data_to_compare) {
+        p <- p + geom_line(aes(y = fit, group = well), size = .7)
+      }
+
+
+      p <- p +
+        scale_x_continuous(expand = c(0,0)) +
+        scale_y_continuous(limits = c(0,NA), expand = c(0,0)) +
+        theme_minimal()
+
+    }
+
+    p
 
   })
-  output$condition_compare <- renderPlot({
-    condition_compare()
 
+  output$final_plot <- renderPlot({
+    final_plot()
   })
 
-  observeEvent(input$dl_condition_compare,{
+  observeEvent(input$dl_final_plot,{
     output$downloadPlot <- downloadHandler(
       filename = function() { paste0(input$filename, ".", input$filetype) },
-      content = function(file) { ggsave(file, plot = condition_compare(), device = input$filetype, width = input$width, height = input$height, units = input$units, dpi = input$dpi) }
+      content = function(file) { ggsave(file, plot = final_plot(), device = input$filetype, width = input$width, height = input$height, units = input$units, dpi = input$dpi) }
     )
     showModal(modalSavePlot())
   })
+
 }
 
 
