@@ -21,7 +21,8 @@ Imports:
     dplyr,
     tidyr,
     stringr,
-    ggplot2
+    ggplot2,
+    formattable
 LazyData: true
 RoxygenNote: 7.1.2
 Remotes: github::coolbutuseless/ggpattern

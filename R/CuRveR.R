@@ -7,6 +7,8 @@
 #' @import tidyr
 #' @import stringr
 #' @import ggplot2
+#' @import sf
+#' @import svglite
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
@@ -42,10 +44,7 @@ ui <-
     ##                            Footer                            ##
     ##################################################################
 
-    footer = fluidRow(
-      column(2, offset = 1,  actionButton("previous_tab", "Previous step")),
-      column(2, offset = 6,  actionButton("next_tab", "Next step"))
-    ),
+
 
     ##################################################################
     ##                         Data loading                         ##
@@ -53,27 +52,46 @@ ui <-
 
     tabPanel("Load Data", value = 1,
 
-      radioButtons("file_type", "Type of input file(s):",
-                  c("XLSX" = "xlsx",
-                    "CSV" = "csv")),
-
-      conditionalPanel("input.file_type == 'xlsx'",
-        radioButtons("excel_type", "Type of input file(s):",
-                      c("Multiples files"  = "file",
-                        "Multiples sheets" = "sheet"))),
-
-      conditionalPanel("input.file_type == 'xlsx' && input.excel_type == 'sheet'",
-        fileInput("excel_file", "Select your XLSX file")),
-
       fluidRow(
-        numericInput("n_signals", "Numbers of signal(s) to analyse:",
-                     value = 1, min = 1, max = 10, step = 1),
-        actionButton("change_signals", "OK")
+        column(6,
+          radioButtons("file_type", "Type of input file(s):",
+                            c("XLSX" = "xlsx",
+                              "CSV" = "csv"))
+        ),
+        column(6,
+          conditionalPanel("input.file_type == 'xlsx'",
+                          radioButtons("excel_type", "Type of input file(s):",
+                                       c("Multiples files"  = "file",
+                                         "Multiples sheets" = "sheet")))
+        )
+      ),
+      fluidRow(
+        column(6,
+          conditionalPanel("input.file_type == 'xlsx' && input.excel_type == 'sheet'",
+                           fileInput("excel_file", "Select your XLSX file"))
+        )
       ),
 
-      uiOutput("signals"),
 
-      actionButton("load_data", "Load data")
+      fluidRow(
+        column(4,
+          numericInput("n_signals", "Numbers of signal(s) to analyse:",
+                       value = 1, min = 1, max = 10, step = 1),
+        )
+      ),
+      fluidRow(
+        column(12,
+           uiOutput("signals")
+        )
+      ),
+      fluidRow(
+        column(2, offset = 5,
+          actionButton("load_data", "Load data", style="display:center-align")
+        )
+      )
+
+
+
 
     ),
 
@@ -82,9 +100,24 @@ ui <-
     #################################################################
 
     tabPanel("Overview", value = 2,
-      uiOutput("signal_selector_overview"),
-      plotOutput("overview"),
-      actionButton("dl_overview", "Save")
+      fluidRow(
+        column(3,
+          uiOutput("signal_selector_overview")
+        )
+      ),
+      fluidRow(
+        column(12,
+          plotOutput("overview", height = "80vh")
+        )
+      ),
+      fluidRow(
+        column(3,
+          actionButton("dl_overview", "Save")
+        ),
+        column(4, offset = 1,
+          actionButton("goto_condition", "Next step")
+        )
+      )
     ),
 
     #################################################################
@@ -93,50 +126,44 @@ ui <-
 
     tabPanel("Conditions", value = 3,
       fluidRow(
+        column(3,
+          div(selectizeInput("whichcondition", label = NULL, choices = c("Exemple_condition")), style = 'margin-top:20px')
+        ),
+        column(5,
+          spsComps::textButton(textId = "condition_name", label = "", btn_label = "Rename", placeholder = "New name")
+        ),
+        column(2,
+          actionButton("add_condition", "Add", style = 'margin-top:20px')
+        ),
+        column(2,
+          actionButton("del_condition", "Remove", style = 'margin-top:20px')
+        )
+      ),
+      fluidRow(
         column(4,
-          h3("Wells"),
-          div(style = 'width:100%;overflow-x: scroll;height:90vh;overflow-y: scroll;', uiOutput("well_list"))
-       ),
-        column(8,
-          h3("Conditions"),
-          fluidRow(
-            column(3,
-              selectizeInput("whichcondition", label = NULL, choices = NULL)
-            ),
-            column(5,
-              spsComps::textButton(textId = "condition_name", label = "", btn_label = "Rename", placeholder = "New name", class = "btn-primary")
-            ),
-            column(2,
-              actionButton("add_condition", "+", class = "btn-primary")
-            ),
-            column(2,
-              actionButton("del_condition", "Del")
-            )
-          ),
-          fluidRow(
-            column(2,
-              actionButton("save_condition", "Save")
-            ),
-            column(2,
-              fileInput("condition_file", "Import previous conditions")
-            ),
-            column(2,
-              actionButton("load_condition", "Load")
-            )
-          ),
-          fluidRow(
-            column(6,
-              uiOutput("replicates")
-            ),
-            column(6,
-              uiOutput("blanks")
-            ),
-          ),
-          fluidRow(
-            plotOutput("condition_recap")
-          )
+          div(style = 'width:100%;overflow-x: scroll;height:50vh;overflow-y: scroll;', uiOutput("well_list"))
+        ),
+        column(4,
+          div(style = 'width:100%;overflow-x: scroll;height:50vh;overflow-y: scroll;', uiOutput("replicates"))
+        ),
+        column(4,
+          div(style = 'width:100%;overflow-x: scroll;height:50vh;overflow-y: scroll;', uiOutput("blanks"))
+        ),
+      ),
+      fluidRow(
+        column(12,
+          plotOutput("condition_recap", height = "25vh")
+        )
+      ),
+      fluidRow(
+        column(3,
+          downloadButton("download_condition_template", "Save as template", style = 'margin-top:25px')
+        ),
+        column(3,
+          fileInput("condition_file", "Import template")
         )
       )
+
     ),
 
     #################################################################
@@ -183,6 +210,11 @@ ui <-
         column(4,
           actionButton("fit", "Fit", style = 'margin-top:25px')
         )
+      ),
+      fluidRow(
+        column(12,
+          formattable::formattableOutput("fit_data")
+        )
       )
     ),
 
@@ -223,7 +255,7 @@ ui <-
 
 server <- function(input, output, session){
 
-  rvs <- reactiveValues(conditions = list())
+  rvs <- reactiveValues(conditions = list(Exemple_condition = list(replicates = character(), blanks = character())))
 
   max_tab <- 8
 
@@ -234,13 +266,6 @@ server <- function(input, output, session){
   ##------------------------------
   ##  Previous/Next page buttons
   ##------------------------------
-
-  observeEvent(input$previous_tab, {
-    current_tab <- as.numeric(input$current_tab)
-    if (current_tab > 1) {
-      updateNavbarPage(session, "current_tab", selected = paste(current_tab - 1))
-    }
-  })
 
   observeEvent(input$next_tab, {
     current_tab <- as.numeric(input$current_tab)
@@ -257,7 +282,7 @@ server <- function(input, output, session){
   ##  Map Name - File/Sheet
   ##-------------------------
 
-  observeEvent(input$change_signals, {
+  observeEvent(input$n_signals, {
 
     output$signals <- renderUI({
 
@@ -269,8 +294,9 @@ server <- function(input, output, session){
           1:input$n_signals,
           \(x) {
             fluidRow(
-              column(6, textInput(inputId = paste0("signal_", x), label = NULL,value = input[[paste0("signal_", x)]] %||% "", placeholder = paste0("signal ", x))),
-              column(6, selectInput(inputId = paste0("sheet_", x), label = NULL, choices = readxl::excel_sheets(input$excel_file[["datapath"]]), selected = input[[paste0("sheet_", x)]] %||% NULL)))
+              column(6, textInput(inputId = paste0("signal_", x), label = NULL,value = "", placeholder = paste0("signal ", x))),
+              column(6,
+                     div(style = "display:inline-block; float:right", selectInput(inputId = paste0("sheet_", x), label = NULL, choices = readxl::excel_sheets(input$excel_file[["datapath"]]), selected = input[[paste0("sheet_", x)]] %||% NULL))))
           })
         }
 
@@ -280,7 +306,7 @@ server <- function(input, output, session){
         1:input$n_signals,
         \(x) {
           fluidRow(
-            column(6, textInput(inputId = paste0("signal_", x), label = NULL, value = input[[paste0("signal_", x)]] %||% "", placeholder = paste0("signal ", x))),
+            column(6, textInput(inputId = paste0("signal_", x), label = NULL, value = "", placeholder = paste0("signal ", x))),
             column(6, fileInput(inputId = paste0("file_", x),   label = NULL)))
         })
       }
@@ -335,6 +361,8 @@ server <- function(input, output, session){
 
     rvs$all_wells <<- isolate(unique(rvs$data[["well"]]))
     rvs$all_signals <<- isolate(unique(rvs$data[["signal"]]))
+
+    updateNavbarPage(session, "current_tab", selected = "2")
   })
 
   #################################################################
@@ -376,6 +404,10 @@ server <- function(input, output, session){
     )
     showModal(modalSavePlot())
   })
+
+  observeEvent(input$goto_condition,{
+    updateNavbarPage(session, "current_tab", selected = "3")
+  })
   #################################################################
   ##                     Conditions & Blanks                     ##
   #################################################################
@@ -402,9 +434,7 @@ server <- function(input, output, session){
   ##  Save condition
   ##------------------
 
-  observeEvent(input$save_condition, {
-
-    downloadHandler(
+  output$download_condition_template <- downloadHandler(
       filename = function() {
         paste("Test.Rds", sep = "")
       },
@@ -412,17 +442,20 @@ server <- function(input, output, session){
         saveRDS(rvs$conditions, file)
       })
 
-  })
 
   ##------------------
   ##  Load condition
   ##------------------
 
-  observeEvent(input$load_condition, {
+  observeEvent(input$condition_file, {
+
 
     req(input$condition_file)
 
     rvs$conditions <<-readRDS(input$condition_file[["datapath"]])
+
+    output$replicates <- renderUI({replicates_UI()})
+    output$blanks <- renderUI({blanks_UI()})
 
     updateSelectizeInput(session, 'whichcondition',
                          label    = NULL,
@@ -477,40 +510,39 @@ server <- function(input, output, session){
 
   output$well_list <- renderUI({
 
-    rank_list(text     = NULL,
+    output$replicates <- renderUI({replicates_UI()})
+    output$blanks <- renderUI({blanks_UI()})
+
+    rank_list(text     = "Wells",
               labels   = wells(),
               input_id = "well_var",
               options  = sortable_options(group = list(name = "sort_conditions_group",
-                                                       put   = FALSE,
+                                                       put   = TRUE,
                                                        pull  = "clone"),
-                                          multiDrag = TRUE))
+                                          multiDrag = TRUE,
+                                          onAdd = htmlwidgets::JS("function (evt) { this.el.removeChild(evt.item); }")
+                                          ))
+
   })
 
   ##-----------------------------------
   ##  Replicates of current condition
   ##-----------------------------------
 
-  output$replicates <- renderUI({
 
-    req(input$whichcondition)
+    replicates_UI <- reactive({
+      req(input$whichcondition)
 
-    rank_list(text     = "Replicates",
-              labels   = rvs$conditions[[input$whichcondition]][["replicates"]],
-              input_id = input$whichcondition,
-              options  = sortable_options(group = list(name = "sort_conditions_group",
-                                                       put  = TRUE,
-                                                       pull = TRUE),
-                                          multiDrag = TRUE
-              ))
-
+      rank_list(text     = "Replicates",
+                labels   = rvs$conditions[[input$whichcondition]][["replicates"]],
+                input_id = input$whichcondition,
+                options  = sortable_options(group = list(name = "sort_conditions_group",
+                                                         put  = TRUE,
+                                                         pull = TRUE),
+                                            multiDrag = TRUE))
   })
 
-  ##-------------------------------
-  ##  Blanks of current condition
-  ##-------------------------------
-
-  output$blanks <- renderUI({
-
+  blanks_UI <- reactive({
     req(input$whichcondition)
 
     id <- paste(input$whichcondition, "blank", sep = "_")
@@ -522,6 +554,20 @@ server <- function(input, output, session){
                                                        put  = TRUE,
                                                        pull = TRUE),
                                           multiDrag = TRUE))
+  })
+
+  observeEvent({
+    input$whichcondition
+    input$load_template},{
+
+
+    output$replicates <- renderUI({replicates_UI()})
+
+  ##-------------------------------
+  ##  Blanks of current condition
+  ##-------------------------------
+
+    output$blanks <- renderUI({blanks_UI()})
   })
 
   ##--------------------------------
@@ -539,8 +585,7 @@ server <- function(input, output, session){
   }, priority = 2)
 
 
-  output$condition_recap <- renderPlot({
-
+  condition_overview <- reactive({
     req(rvs$conditions)
 
     rvs$conditions |>
@@ -559,9 +604,12 @@ server <- function(input, output, session){
       scale_x_discrete(breaks=factor(1:12), limits = factor(1:12)) +
       scale_y_discrete(breaks=factor(LETTERS[8:1]), limits = factor(LETTERS[8:1])) +
       theme_minimal()
-
-
   })
+
+    output$condition_recap <- renderPlot({
+      condition_overview()
+    })
+
 
   #################################################################
   ##                           Cutoffs                           ##
@@ -646,8 +694,7 @@ server <- function(input, output, session){
       geom_vline(aes(xintercept = median(right_cutoff)),
                  size = 1, linetype = "dashed") +
       expand_limits(x = 0, y = 0) +
-      scale_x_continuous(expand = c(0, 0),
-                         breaks = seq(0, max_time, by = 2)) +
+      scale_x_continuous(breaks = seq(0, max_time, by = 2)) +
       scale_y_continuous(expand = c(0, 0)) +
       theme_minimal() +
       theme(text = element_text(size=20))
@@ -667,12 +714,13 @@ server <- function(input, output, session){
 
     rvs$data |>
       full_join(condition, by = c("well" = "well")) |>
-      group_by(condition, Time) |>
-      mutate(blank = mean(value[type == "blanks"])) |>
-      mutate(value = if_else(is.na(value - blank), value, value - blank)) |>
-      filter(type != "blanks") |>
       rowwise() |>
       filter(between(Time, left_cutoff, right_cutoff)) |>
+      group_by(condition) |>
+      mutate(blank = mean(value[type == "blanks"])) |>
+      rowwise() |>
+      mutate(value = if_else(is.na(value - blank), value, value - blank)) |>
+      filter(type != "blanks") |>
       ungroup() -> data_to_fit
 
     data_to_fit |>
@@ -717,6 +765,10 @@ server <- function(input, output, session){
 
     print(rvs$perfomances)
 
+    output$fit_data <- formattable::renderFormattable({
+      rvs$perfomances |> formattable::format_table()
+
+    })
 
   })
 
