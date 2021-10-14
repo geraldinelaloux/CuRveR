@@ -143,13 +143,15 @@ ui <-
     tabPanel("Conditions", value = 3,
       fluidRow(
         column(3,
-          div(selectizeInput("whichcondition", label = NULL, choices = c("Example_condition")), style = 'margin-top:20px')
-        ),
-        column(2,
-               actionButton("add_condition", "Add", style = 'margin-top:20px')
-        ),
-        column(2,
-               actionButton("del_condition", "Remove", style = 'margin-top:20px')
+          div(style = 'margin-top:20px display:inline-block',
+            selectizeInput("whichcondition", label = NULL, choices = c("Example_condition"))
+          ),
+          div(style = 'display:inline-block',
+            actionButton("add_condition", NULL, style = 'margin-top:20px', icon = icon("plus"))
+          ),
+          div(style = 'display:inline-block',
+            actionButton("del_condition", NULL, style = 'margin-top:20px', icon = icon("trash-alt"))
+          )
         ),
         column(5,
           spsComps::textButton(textId = "condition_name", label = "", btn_label = "Rename", placeholder = "New name")
