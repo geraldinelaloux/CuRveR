@@ -234,7 +234,7 @@ ui <-
       ),
       fluidRow(
         column(12,
-          div(style = 'width:100%;overflow-x: scroll;height:20vh;overflow-y: scroll;',
+          div(style = 'width:100%;overflow-x: scroll;height:15vh;overflow-y: scroll;',
             formattable::formattableOutput("fit_data")
           )
         )
@@ -246,7 +246,7 @@ ui <-
       ),
       fluidRow(
         column(12,
-          div(style = 'width:100%;overflow-x: scroll;height:40vh;overflow-y: scroll;',
+          div(style = 'width:100%;overflow-x: scroll;height:30vh;overflow-y: scroll;',
             formattable::formattableOutput("data_by_condition")
           )
         )
@@ -255,7 +255,15 @@ ui <-
         column(3,
           actionButton("dl_data", "Save")
         )
-      )
+      ),
+      fluidRow(
+        column(12,
+         div(style = 'width:100%;overflow-x: scroll;height:15vh;overflow-y: scroll;',
+             formattable::formattableOutput("data_recap")
+         )
+        )
+      ),
+
     ),
 
     #################################################################
@@ -291,7 +299,7 @@ ui <-
           ),
           conditionalPanel("input.plot_type == 'data_comparison'",
             checkboxGroupInput("data_to_compare", "Plot features",
-                               choices = c("Mean"       = "mean",
+                               choices = c("Mean"        = "mean",
                                            "SD as bar"   = "sd_bar",
                                            "SD as halo"  = "sd_halo",
                                            "Fit"         = "fit",
@@ -329,7 +337,7 @@ ui <-
 
 server <- function(input, output, session){
 
-  rvs <- reactiveValues(conditions = list(Exemple_condition = list(replicates = character(), blanks = character())))
+  rvs <- reactiveValues(conditions = list(Example_condition = list(replicates = character(), blanks = character())))
 
   max_tab <- 8
 
@@ -588,9 +596,13 @@ server <- function(input, output, session){
     current_condition <- input$whichcondition
     new_name <- input$condition_name
 
+    print(current_condition)
+    print(new_name)
 
+    print(rvs$conditions)
     rvs$conditions[[new_name]] <<- rvs$conditions[[current_condition]]
     rvs$conditions[[current_condition]] <- NULL
+    print(rvs$conditions)
 
     updateSelectizeInput(session, 'whichcondition',
                          label    = NULL,
@@ -811,19 +823,23 @@ server <- function(input, output, session){
     rvs$data |>
       full_join(condition, by = c("well" = "well")) |>
       rowwise() |>
-      filter(between(Time, left_cutoff, right_cutoff)) |>
-      group_by(condition) |>
-      mutate(blank = mean(value[type == "blanks"])) |>
+      mutate(in_cutoff = between(Time, left_cutoff, right_cutoff)) |>
+      group_by(condition, signal) |>
+      mutate(blank = mean(value[in_cutoff & type == "blanks"])) |>
       rowwise() |>
       mutate(value = if_else(is.na(value - blank), value, value - blank)) |>
       filter(type != "blanks") |>
       ungroup() -> data_to_fit
 
     data_to_fit |>
+      rowwise() |>
+      filter(between(Time, left_cutoff, right_cutoff)) |>
       fit_data(c(signal, well), value, Time, method = "LAD") |>
       select(signal, well, p_max, p_min, r_max, s) -> rvs$parameters_by_well
 
     data_to_fit |>
+      rowwise() |>
+      filter(between(Time, left_cutoff, right_cutoff)) |>
       fit_data(c(signal, condition), value, Time, method = "LAD") |>
       select(signal, condition, p_max, p_min, r_max, s) -> rvs$parameters_by_condition
 
@@ -836,6 +852,12 @@ server <- function(input, output, session){
       full_join(rvs$parameters_by_condition, by = c("condition" = "condition", "signal" = "signal")) |>
       mutate(fit = richard(Time, p_max, p_min, r_max, s),
              doubling_time = log(2)/log(1+r_max/p_max)) -> rvs$data_by_condition
+
+    rvs$data_by_condition |>
+      group_by(signal, condition) |>
+      summarise(r_max = median(r_max), p_max = median(p_max), p_min = median(p_min), s = median(s)) -> rvs$recap
+
+
 
     rvs$data_by_condition |>
       rowwise() |>
@@ -864,6 +886,10 @@ server <- function(input, output, session){
 
     output$data_by_condition <- formattable::renderFormattable({
       formattable::formattable(rvs$data_by_condition)
+    })
+
+    output$data_recap <- formattable::renderFormattable({
+      formattable::formattable(rvs$recap)
     })
 
   })

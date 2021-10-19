@@ -23,7 +23,8 @@ Imports:
     stringr,
     ggplot2,
     formattable,
-    sortable
+    sortable,
+    svglite
 LazyData: true
 RoxygenNote: 7.1.2
 Remotes: github::coolbutuseless/ggpattern
