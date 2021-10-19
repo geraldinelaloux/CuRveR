@@ -952,7 +952,8 @@ server <- function(input, output, session){
       plot_data |>
         ggplot(aes(y = condition, x = !!as.symbol(input$metric_to_compare))) +
         geom_point(size = 5, color = "#e8871a") +
-        theme_minimal() -> p
+        theme_minimal()+
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) -> p
 
     }
 
