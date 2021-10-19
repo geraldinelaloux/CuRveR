@@ -142,18 +142,16 @@ ui <-
 
     tabPanel("Conditions", value = 3,
       fluidRow(
-        column(3,
-          div(style = 'margin-top:20px display:inline-block',
-            selectizeInput("whichcondition", label = NULL, choices = c("Example_condition"))
-          ),
-          div(style = 'display:inline-block',
-            actionButton("add_condition", NULL, style = 'margin-top:20px', icon = icon("plus"))
-          ),
-          div(style = 'display:inline-block',
-            actionButton("del_condition", NULL, style = 'margin-top:20px', icon = icon("trash-alt"))
+        column(6,
+          div(style = 'margin-top:20px',
+            fillRow(flex = c(NA, NA, NA),
+              selectizeInput("whichcondition", label = NULL, choices = c("Example_condition")),
+              actionButton("add_condition", NULL, icon = icon("plus")),
+              actionButton("del_condition", NULL, icon = icon("trash-alt")),
+            )
           )
-        ),
-        column(5,
+         ),
+        column(6,
           spsComps::textButton(textId = "condition_name", label = "", btn_label = "Rename", placeholder = "New name")
         )
       ),
@@ -370,9 +368,21 @@ server <- function(input, output, session){
           1:input$n_signals,
           \(x) {
             fluidRow(
-              column(4, textInput(inputId = paste0("signal_", x), label = NULL,value = "", placeholder = paste0("signal ", x))),
               column(4,
-                     div(style = "display:inline-block; float:right", selectInput(inputId = paste0("sheet_", x), label = NULL, choices = readxl::excel_sheets(input$excel_file[["datapath"]]), selected = input[[paste0("sheet_", x)]] %||% NULL))))
+                textInput(inputId = paste0("signal_", x),
+                          label = NULL,
+                          value = input[[paste0("sheet_", x)]] %||% "")
+              ),
+              column(4,
+                div(style = "display:inline-block; float:right",
+                  selectInput(inputId = paste0("sheet_", x),
+                              label = NULL,
+                              choices = readxl::excel_sheets(input$excel_file[["datapath"]]),
+                              selected = input[[paste0("sheet_", x)]] %||% NULL)
+                )
+              ),
+              ignoreInit = TRUE,
+            )
           })
         }
 
@@ -382,8 +392,16 @@ server <- function(input, output, session){
         1:input$n_signals,
         \(x) {
           fluidRow(
-            column(4, textInput(inputId = paste0("signal_", x), label = NULL, value = "", placeholder = paste0("signal ", x))),
-            column(4, fileInput(inputId = paste0("file_", x),   label = NULL)))
+            column(4,
+              textInput(inputId = paste0("signal_", x),
+                        label = NULL,
+                        value = input[[paste0("file_", x)]] %||% "")
+            ),
+            column(4,
+              fileInput(inputId = paste0("file_", x),
+                        label = NULL)
+            )
+          )
         })
       }
     })
